@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yash Kumar — AI & Quantitative Finance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ── Custom properties ───────────────────────────────────────── */
+        :root {
+            --bg-primary:      #0c0906;
+            --bg-secondary:    #14100b;
+            --bg-elevated:     #1c1610;
+            --text-primary:    #f0e6d6;
+            --text-secondary:  #9a8872;
+            --accent:          #d4956a;
+            --accent-dim:      rgba(212, 149, 106, 0.12);
+            --accent-gold:     #c9a84c;
+            --cool:            #7a8b8a;
+            --border:          rgba(154, 136, 114, 0.12);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Grain overlay ───────────────────────────────────────────── */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='512' height='512' filter='url(%23g)'/%3E%3C/svg%3E");
+            background-size: 256px;
+        }
+
+        /* ── Spiral canvas ───────────────────────────────────────────── */
+        #bg-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ── Static fallback (mobile) ─────────────────────────────────── */
+        .static-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 60% 55% at 50% 50%,
+                    rgba(212, 149, 106, 0.09) 0%, transparent 65%),
+                var(--bg-primary);
+        }
+
+        @media (max-width: 767px) {
+            #bg-canvas { display: none; }
+            .static-bg { display: block; }
+        }
+
+        /* ── Navigation ──────────────────────────────────────────────── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 28px 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 400ms ease, backdrop-filter 400ms ease,
+                        -webkit-backdrop-filter 400ms ease;
+        }
+
+        nav.scrolled {
+            background: rgba(28, 22, 16, 0.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .nav-logo {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-weight: 300;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            letter-spacing: 0.06em;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-size: 0.70rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            text-decoration: none;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            transition: color 220ms ease;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+
+        @media (max-width: 767px) {
+            nav { padding: 20px 24px; }
+            .nav-links { gap: 22px; }
+        }
+
+        /* ── Hero section ────────────────────────────────────────────── */
+        #hero {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Warm atmospheric center glow */
+        .hero-warm-glow {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            background: radial-gradient(
+                ellipse 55% 65% at 50% 50%,
+                rgba(212, 149, 106, 0.05) 0%,
+                transparent 72%
+            );
+        }
+
+        /* Very faint celestial body — hazy warm light in upper-right area */
+        .hero-celestial {
+            position: absolute;
+            top: 7%;
+            left: 60%;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+            background: radial-gradient(
+                circle at 50% 50%,
+                rgba(212, 149, 106, 0.055) 0%,
+                rgba(212, 149, 106, 0.018) 45%,
+                transparent 70%
+            );
+        }
+
+        /* Edge vignette */
+        .hero-vignette {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background: radial-gradient(
+                ellipse 80% 76% at 50% 50%,
+                transparent 36%,
+                rgba(12, 9, 6, 0.65) 100%
+            );
+        }
+
+        /* Sand dunes — fixed layer behind the spiral canvas */
+        .dunes-bg {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 38vh;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .dunes-bg svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Dark radial behind centered text */
+        .hero-text-shield {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 5;
+            background: radial-gradient(
+                ellipse 28% 36% at 50% 50%,
+                rgba(12, 9, 6, 0.78) 0%,
+                rgba(12, 9, 6, 0.42) 44%,
+                transparent 76%
+            );
+        }
+
+        /* ── Hero content — centered ──────────────────────────────────── */
+        .hero-content {
+            position: relative;
+            z-index: 6;
+            text-align: center;
+            width: 100%;
+            max-width: 1000px;
+            padding: 0 40px;
+        }
+
+        .hero-name {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-style: italic;
+            font-weight: 300;
+            font-size: clamp(4rem, 9vw, 8rem);
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+            line-height: 0.95;
+            margin-bottom: 20px;
+            text-shadow: 0 0 60px rgba(212, 149, 106, 0.12);
+        }
+
+        .hero-rule {
+            width: 500px;
+            height: 1px;
+            background: rgba(212, 149, 106, 0.20);
+            margin: 0 auto 24px;
+        }
+
+        .hero-tagline {
+            font-family: 'DM Sans', sans-serif;
+            font-size: clamp(0.62rem, 1.05vw, 0.76rem);
+            font-weight: 400;
+            color: var(--text-secondary);
+            letter-spacing: 0.30em;
+            text-transform: uppercase;
+            margin-bottom: 48px;
+        }
+
+        .tagline-x { color: var(--accent); margin: 0 6px; }
+
+        .hero-cta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 44px;
+            border-radius: 50px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: border-color 280ms ease, background 280ms ease,
+                        color 280ms ease, box-shadow 280ms ease;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .btn-outline {
+            color: var(--text-primary);
+            background: transparent;
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 20px rgba(212, 149, 106, 0.12);
+        }
+
+        .btn-filled {
+            color: var(--text-primary);
+            background: var(--accent-dim);
+            border: 1px solid transparent;
+        }
+        .btn-filled:hover {
+            background: rgba(212, 149, 106, 0.22);
+            box-shadow: 0 0 20px rgba(212, 149, 106, 0.12);
+        }
+
+        /* ── Ticker tape ─────────────────────────────────────────────── */
+        .ticker-wrap {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            overflow: hidden;
+            z-index: 6;
+            pointer-events: none;
+            padding: 8px 0;
+            mask-image: linear-gradient(to right,
+                transparent 0%, black 8%, black 92%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right,
+                transparent 0%, black 8%, black 92%, transparent 100%);
+        }
+
+        .ticker {
+            display: inline-flex;
+            white-space: nowrap;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            color: var(--text-primary);
+            opacity: 0.25;
+            animation: tickerScroll 100s linear infinite;
+        }
+
+        .ticker-half { display: inline-flex; align-items: center; }
+        .t-item { padding: 0 20px; }
+        .t-sep  { color: rgba(154, 136, 114, 0.35); padding: 0 6px; }
+
+        @keyframes tickerScroll {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+
+        @media (max-width: 767px) { .ticker-wrap { display: none; } }
+
+        /* ── Scroll indicator ────────────────────────────────────────── */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 6;
+            pointer-events: none;
+        }
+
+        .scroll-line {
+            width: 1px;
+            height: 40px;
+            background: rgba(212, 149, 106, 0.25);
+            position: relative;
+        }
+
+        .scroll-dot {
+            position: absolute;
+            left: -2px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--accent);
+            opacity: 0;
+            animation: dotTravel 2.4s ease-in-out infinite;
+        }
+
+        @keyframes dotTravel {
+            0%   { top: -3px;  opacity: 0; }
+            12%  { top:  2px;  opacity: 1; }
+            88%  { top: 38px;  opacity: 0.7; }
+            100% { top: 43px;  opacity: 0; }
+        }
+
+        @media (max-width: 767px) {
+            .hero-content { padding: 0 24px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="static-bg" aria-hidden="true"></div>
+
+<!-- Dunes: fixed layer, z-index:-1, sits behind the spiral canvas -->
+<div class="dunes-bg" aria-hidden="true">
+    <svg viewBox="0 0 1440 300" preserveAspectRatio="xMidYMax slice"
+         xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <!-- Atmospheric horizon haze -->
+            <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="rgba(212,149,106,0.00)"/>
+                <stop offset="70%"  stop-color="rgba(212,149,106,0.038)"/>
+                <stop offset="100%" stop-color="rgba(212,149,106,0.00)"/>
+            </linearGradient>
+            <!-- Front dune — warm crest, cooler base -->
+            <linearGradient id="fd2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#2e2417"/>
+                <stop offset="10%"  stop-color="#221b11"/>
+                <stop offset="100%" stop-color="#1a140d"/>
+            </linearGradient>
+        </defs>
+
+        <!-- Horizon atmospheric haze band -->
+        <rect x="0" y="60" width="1440" height="140" fill="url(#haze)"/>
+
+        <!-- Back dune — far, barely distinguishable from sky -->
+        <path fill="#131009"
+              d="M -10,180
+                 C  95,148  258,166  445,154
+                 C 632,142  814,128  1010,142
+                 C 1168,154 1318,166 1450,158
+                 L 1450,300 L -10,300 Z"/>
+
+        <!-- Middle dune — receding ridge -->
+        <path fill="#1a1510"
+              d="M -10,216
+                 C  72,192  196,210  378,200
+                 C 560,190  712,174  908,189
+                 C 1066,202 1234,217 1386,208
+                 C 1424,205 1440,208 1450,207
+                 L 1450,300 L -10,300 Z"/>
+
+        <!-- Front dune — nearest, warmest, most organic -->
+        <path fill="url(#fd2)"
+              d="M -10,248
+                 C  42,232  128,244  256,237
+                 C 384,230  492,216  646,230
+                 C 784,243  946,257 1096,248
+                 C 1218,241 1352,250 1450,244
+                 L 1450,300 L -10,300 Z"/>
+
+        <!-- Warm crest highlight — rim light catching the front ridge -->
+        <path fill="none" stroke="rgba(212,149,106,0.11)" stroke-width="1.5"
+              d="M -10,248
+                 C  42,232  128,244  256,237
+                 C 384,230  492,216  646,230
+                 C 784,243  946,257 1096,248
+                 C 1218,241 1352,250 1450,244"/>
+    </svg>
+</div>
+
+<canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+<nav>
+    <a href="#hero" class="nav-logo">Yash Kumar</a>
+    <ul class="nav-links">
+        <li><a href="#work">Work</a></li>
+        <li><a href="#writing">Writing</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+    </ul>
+</nav>
+
+<section id="hero">
+
+    <div class="hero-warm-glow" aria-hidden="true"></div>
+    <div class="hero-celestial" aria-hidden="true"></div>
+    <div class="hero-vignette"  aria-hidden="true"></div>
+
+    <div class="hero-text-shield" aria-hidden="true"></div>
+
+    <div class="hero-content">
+        <h1 class="hero-name">Yash Kumar</h1>
+        <div class="hero-rule" aria-hidden="true"></div>
+        <p class="hero-tagline">AI <span class="tagline-x">×</span> Quantitative Finance</p>
+        <div class="hero-cta">
+            <a href="#work"    class="btn btn-outline">View My Work</a>
+            <a href="#contact" class="btn btn-filled">Get in Touch</a>
+        </div>
+    </div>
+
+    <div class="ticker-wrap" aria-hidden="true">
+        <div class="ticker">
+            <span class="ticker-half">
+                <span class="t-item">↑ AAPL 1.24%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ NVDA 0.87%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ MSFT 2.15%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ TSLA 0.33%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ AMZN 1.02%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ GOOG 0.76%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ META 1.89%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ JPM  0.45%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ GS   0.93%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ BRK  0.21%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ SPY  0.58%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ QQQ  1.12%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ NFLX 1.34%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ COIN 3.47%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ BTC  2.89%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ ETH  1.76%</span><span class="t-sep">|</span>
+            </span>
+            <span class="ticker-half">
+                <span class="t-item">↑ AAPL 1.24%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ NVDA 0.87%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ MSFT 2.15%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ TSLA 0.33%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ AMZN 1.02%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ GOOG 0.76%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ META 1.89%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ JPM  0.45%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ GS   0.93%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ BRK  0.21%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ SPY  0.58%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ QQQ  1.12%</span><span class="t-sep">|</span>
+                <span class="t-item">↓ NFLX 1.34%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ COIN 3.47%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ BTC  2.89%</span><span class="t-sep">|</span>
+                <span class="t-item">↑ ETH  1.76%</span><span class="t-sep">|</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="scroll-indicator" aria-hidden="true">
+        <div class="scroll-line"><div class="scroll-dot"></div></div>
+    </div>
+
+</section>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── Nav scroll ────────────────────────────────────────────────────────
+    window.addEventListener('scroll', function () {
+        document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // ── Mobile guard ──────────────────────────────────────────────────────
+    if (window.innerWidth < 768) {
+        document.querySelector('.static-bg').style.display = 'block';
+        return;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CANVAS SETUP
+    // ─────────────────────────────────────────────────────────────────────
+    var canvas = document.getElementById('bg-canvas');
+    var ctx    = canvas.getContext('2d');
+    var dpr    = Math.min(window.devicePixelRatio || 1, 2);
+    var W, H, cx, cy, EYE_R, MAX_R;
+
+    function layout() {
+        W     = window.innerWidth;
+        H     = window.innerHeight;
+        cx    = W * 0.5;
+        cy    = H * 0.5;
+        // Eye radius — clear dark space behind name text
+        EYE_R = Math.min(W, H) * 0.13;
+        // Outer radius — spiral fills ~80% of viewport, reaching screen edges
+        MAX_R = Math.max(W, H) * 0.52;
+    }
+    layout();
+
+    function resizeCanvas() {
+        canvas.width  = W * dpr;
+        canvas.height = H * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    resizeCanvas();
+
+    // ─────────────────────────────────────────────────────────────────────
+    // SPIRAL VORTEX — sparse, elegant, 4 arms × 270 = 1080 characters
+    // BUG FIX: each particle now has `char` assigned from CHARS array.
+    // ─────────────────────────────────────────────────────────────────────
+    var CHARS = ['0','1','$','¥','€','£','%','↑','↓','7','3','9','.','8','5','2'];
+    var N_ARMS  = 4;
+    var PER_ARM = 270;   // 4 × 270 = 1080 total
+    // 1.6 loops per arm — clear dark spaces between arms at any given radius
+    var SWEEP = 1.6 * Math.PI * 2;
+    var K     = Math.log(MAX_R / EYE_R);   // log-spiral growth
+
+    // Precomputed palette strings — max opacity 0.42 for sparse feel
+    // 8 opacity steps × 3 color types = 24 unique strings
+    var PAL = [[], [], []];
+    for (var k = 0; k < 8; k++) {
+        var a = (0.06 + k * 0.048).toFixed(2);   // 0.06 → 0.39
+        PAL[0].push('rgba(240,230,214,' + a + ')');   // cream
+        PAL[1].push('rgba(212,149,106,' + a + ')');   // terracotta
+        PAL[2].push('rgba(122,154,106,' + a + ')');   // muted green
+    }
+
+    // 5 font size tiers
+    var FS = [3, 4, 5, 6, 7];
+    var FS_STR = FS.map(function (s) { return s + "px 'Courier New',monospace"; });
+
+    var particles = [];
+
+    for (var arm = 0; arm < N_ARMS; arm++) {
+        var armOff = arm * (Math.PI * 2 / N_ARMS);
+
+        for (var j = 0; j < PER_ARM; j++) {
+            var t = j / (PER_ARM - 1);
+
+            var r     = EYE_R * Math.exp(K * t);
+            var theta = armOff + t * SWEEP;
+
+            // Organic scatter — keeps the spiral from looking too rigid
+            r     += (Math.random() - 0.5) * r * 0.14;
+            theta += (Math.random() - 0.5) * 0.20;
+
+            // Inner rings spin faster (0.0042 rad/frame → 0.0004 at outer)
+            var omega = 0.0042 - t * 0.0038;
+
+            var rng   = Math.random();
+            var cType = rng < 0.76 ? 0 : (rng < 0.93 ? 1 : 2);
+            var opB   = Math.min(7, Math.floor(t * 8));
+            var fsB   = Math.min(4, Math.floor(t * 5));
+
+            particles.push({
+                r:        r,
+                theta:    theta,
+                dAngle:   Math.random() * Math.PI * 2,   // stagger start
+                omega:    omega,
+                // ★ FIX: char was missing — this caused "undefined" text
+                char:     CHARS[Math.floor(Math.random() * CHARS.length)],
+                colorStr: PAL[cType][opB],
+                fsB:      fsB,
+                dispX:    0,
+                dispY:    0
+            });
+        }
+    }
+
+    // Sort by font tier then color — minimises ctx.font / fillStyle switches
+    particles.sort(function (a, b) {
+        if (a.fsB !== b.fsB) return a.fsB - b.fsB;
+        return a.colorStr < b.colorStr ? -1 : 1;
+    });
+
+    var NP = particles.length;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // DESERT DUST — JS-managed divs with cursor repulsion
+    // Positioned via style.transform each frame — guaranteed visible.
+    // No CSS animations (would conflict with JS-set transforms).
+    // ─────────────────────────────────────────────────────────────────────
+    var hero = document.getElementById('hero');
+    var DUST_N = 80;
+    var dustArr = [];
+
+    for (var di = 0; di < DUST_N; di++) {
+        var sz  = Math.random() < 0.65 ? 1 : 2;
+        var op  = (0.06 + Math.random() * 0.14).toFixed(2);
+        var spd = 0.45 + Math.random() * 1.0;    // px per frame (slow drift)
+        var blr = Math.random() < 0.28 ? 'blur(0.5px)' : 'none';
+
+        var div = document.createElement('div');
+        div.setAttribute('aria-hidden', 'true');
+        div.style.cssText =
+            'position:absolute;left:0;top:0;'
+            + 'width:' + sz + 'px;height:' + sz + 'px;'
+            + 'border-radius:50%;background:#f0e6d6;'
+            + 'pointer-events:none;z-index:4;'
+            + 'filter:' + blr + ';'
+            + 'will-change:transform;opacity:' + op + ';';
+
+        hero.appendChild(div);
+
+        dustArr.push({
+            div:         div,
+            x:           Math.random() * W,          // start spread across hero
+            y:           Math.random() * H,
+            vx:          -spd,                        // drift left
+            wobbleAmp:   6  + Math.random() * 16,
+            wobbleFreq:  0.010 + Math.random() * 0.018,
+            wobblePhase: Math.random() * Math.PI * 2,
+            dispX:       0,
+            dispY:       0
+        });
+    }
+
+    console.log('Dust particles created:', DUST_N);
+
+    // ─────────────────────────────────────────────────────────────────────
+    // MOUSE STATE
+    // ─────────────────────────────────────────────────────────────────────
+    var mouseX = -9999, mouseY = -9999;
+    var SPIRAL_R  = 120,  SPIRAL_R2  = 120 * 120;
+    var SPIRAL_F  = 2.2,  SPIRAL_DECAY = 0.85;
+    var DUST_R    = 100,  DUST_R2    = 100 * 100;
+    var DUST_F    = 0.7,  DUST_DECAY = 0.92;
+
+    document.addEventListener('mousemove', function (e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    }, { passive: true });
+
+    document.addEventListener('mouseleave', function () {
+        mouseX = -9999; mouseY = -9999;
+    });
+
+    // ── Background glow (rebuilt on resize) ──────────────────────────────
+    var glowGrad;
+    function buildGlow() {
+        glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, MAX_R * 1.25);
+        glowGrad.addColorStop(0,    'rgba(212,149,106,0.07)');
+        glowGrad.addColorStop(0.45, 'rgba(212,149,106,0.022)');
+        glowGrad.addColorStop(1,    'rgba(0,0,0,0)');
+    }
+    buildGlow();
+
+    // ─────────────────────────────────────────────────────────────────────
+    // DRAW LOOP — spiral + dust, both with cursor repulsion
+    // ─────────────────────────────────────────────────────────────────────
+    var lastFS = -1, lastColor = '';
+    var p, tx, ty, cx2, cy2, ddx, ddy, d2, dist, tf, force, ang, px, py;
+    var dp, dpx, dpy;
+
+    function draw() {
+        requestAnimationFrame(draw);
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Soft warm glow behind vortex
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // ── Spiral characters ────────────────────────────────────────────
+        lastFS = -1; lastColor = '';
+
+        for (var i = 0; i < NP; i++) {
+            p = particles[i];
+            p.dAngle += p.omega;
+
+            ang = p.theta + p.dAngle;
+            tx  = cx + p.r * Math.cos(ang);
+            ty  = cy + p.r * Math.sin(ang);
+
+            // Cursor repulsion
+            cx2 = tx + p.dispX;
+            cy2 = ty + p.dispY;
+            ddx = cx2 - mouseX;
+            ddy = cy2 - mouseY;
+            d2  = ddx * ddx + ddy * ddy;
+
+            if (d2 < SPIRAL_R2 && d2 > 1.0) {
+                dist  = Math.sqrt(d2);
+                tf    = 1.0 - dist / SPIRAL_R;
+                force = tf * tf * SPIRAL_F;
+                p.dispX += (ddx / dist) * force;
+                p.dispY += (ddy / dist) * force;
+            }
+
+            p.dispX *= SPIRAL_DECAY;
+            p.dispY *= SPIRAL_DECAY;
+
+            px = tx + p.dispX;
+            py = ty + p.dispY;
+
+            // Batched state — only switch when needed
+            if (p.fsB !== lastFS) {
+                ctx.font = FS_STR[p.fsB];
+                lastFS = p.fsB;
+            }
+            if (p.colorStr !== lastColor) {
+                ctx.fillStyle = p.colorStr;
+                lastColor = p.colorStr;
+            }
+
+            ctx.fillText(p.char, px, py);
+        }
+
+        // ── Dust particles ───────────────────────────────────────────────
+        for (var di = 0; di < DUST_N; di++) {
+            dp = dustArr[di];
+
+            // Advance base position
+            dp.x += dp.vx;
+            dp.wobblePhase += dp.wobbleFreq;
+            // Gentle upward float with sine meander
+            dp.y += (Math.sin(dp.wobblePhase) * dp.wobbleAmp * 0.012) - 0.05;
+
+            // Wrap when off left edge — respawn right with fresh random Y
+            if (dp.x + dp.dispX < -15) {
+                dp.x    = W + 15 + Math.random() * 40;
+                dp.y    = Math.random() * H;
+                dp.dispX = 0;
+                dp.dispY = 0;
+            }
+
+            // Cursor repulsion
+            dpx = dp.x + dp.dispX;
+            dpy = dp.y + dp.dispY;
+            ddx = dpx - mouseX;
+            ddy = dpy - mouseY;
+            d2  = ddx * ddx + ddy * ddy;
+
+            if (d2 < DUST_R2 && d2 > 0.5) {
+                dist  = Math.sqrt(d2);
+                tf    = 1.0 - dist / DUST_R;
+                force = tf * tf * DUST_F;
+                dp.dispX += (ddx / dist) * force;
+                dp.dispY += (ddy / dist) * force;
+            }
+
+            dp.dispX *= DUST_DECAY;
+            dp.dispY *= DUST_DECAY;
+
+            dp.div.style.transform =
+                'translate(' + (dp.x + dp.dispX).toFixed(1)
+                + 'px,' + (dp.y + dp.dispY).toFixed(1) + 'px)';
+        }
+    }
+
+    draw();
+
+    // ── Resize ───────────────────────────────────────────────────────────
+    window.addEventListener('resize', function () {
+        layout();
+        resizeCanvas();
+        buildGlow();
+    });
+
+}());
+</script>
+</body>
+</html>
