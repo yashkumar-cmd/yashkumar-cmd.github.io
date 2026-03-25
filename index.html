@@ -68,8 +68,11 @@
         }
 
         @media (max-width: 767px) {
-            #bg-canvas { display: none; }
-            .static-bg { display: block; }
+            #bg-canvas { display: block; }
+            .static-bg { display: none; }
+
+            .hero-content { padding: 0 24px; }
+            .hero-rule { width: min(82vw, 320px); }
         }
 
         /* ── Navigation ──────────────────────────────────────────────── */
@@ -478,10 +481,8 @@
     }, { passive: true });
 
     // ── Mobile guard ──────────────────────────────────────────────────────
-    if (window.innerWidth < 768) {
-        document.querySelector('.static-bg').style.display = 'block';
-        return;
-    }
+    var isMobile = window.innerWidth < 768;
+    document.querySelector('.static-bg').style.display = 'none';
 
     // ── 3D tilt setup ─────────────────────────────────────────────────────
     var tiltWrapper  = document.getElementById('hero-tilt-wrapper');
@@ -506,6 +507,22 @@
         targetTiltY = 0;
     });
 
+
+    document.addEventListener('touchmove', function (e) {
+        if (!e.touches || !e.touches.length) return;
+        mouseX = e.touches[0].clientX;
+        mouseY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function () {
+        mouseX = -9999;
+        mouseY = -9999;
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', function () {
+        mouseX = -9999;
+        mouseY = -9999;
+    }, { passive: true });
     // ─────────────────────────────────────────────────────────────────────
     // CANVAS SETUP
     // ─────────────────────────────────────────────────────────────────────
